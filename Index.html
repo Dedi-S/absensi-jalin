@@ -1,0 +1,1713 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Absensi Jalin — Premises Management</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #0ea5e9;
+    --accent2: #38bdf8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --text: #f1f5f9;
+    --muted: #64748b;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── GRID BACKGROUND ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(14,165,233,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(14,165,233,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; }
+
+  /* ── HEADER ── */
+  .header {
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,15,30,0.8);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .brand-name {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .brand-sub {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .clock {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+
+  .user-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .user-badge:hover { border-color: var(--accent); color: var(--text); }
+
+  .logout-btn {
+    font-size: 11px;
+    color: var(--danger);
+    background: none;
+    border: 1px solid var(--danger);
+    border-radius: 4px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: none;
+  }
+  .logout-btn:hover { background: rgba(239,68,68,0.1); }
+
+  /* ── SCREENS ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── AUTH SCREEN ── */
+  .auth-wrapper {
+    min-height: calc(100vh - 56px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .auth-card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+  }
+
+  .auth-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .auth-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 28px;
+  }
+
+  .field { margin-bottom: 16px; }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .field select option { background: var(--surface); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    width: 100%;
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-success {
+    background: var(--success);
+    color: #000;
+  }
+  .btn-success:hover { filter: brightness(1.1); }
+
+  .btn-danger {
+    background: var(--danger);
+    color: #fff;
+  }
+  .btn-danger:hover { filter: brightness(1.1); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+
+  .btn-full { width: 100%; }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 28px;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 3px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .tab.active {
+    background: var(--accent);
+    color: #000;
+  }
+
+  /* ── MAIN SCREEN ── */
+  .main-wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 16px;
+  }
+
+  /* ── STATUS BANNER ── */
+  .status-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .status-dot.active {
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+    animation: pulse 2s infinite;
+  }
+
+  .status-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .status-meta {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+
+  .duration-badge {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── GRID 2 COL ── */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* ── CAMERA ── */
+  .camera-wrap {
+    position: relative;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 4/3;
+    margin-bottom: 12px;
+  }
+
+  #camera-feed, #camera-feed-checkout {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .camera-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(0,0,0,0.6);
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .photo-preview {
+    width: 100%;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    display: none;
+  }
+
+  canvas { display: none; }
+
+  /* ── GPS STATUS ── */
+  .gps-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-bottom: 12px;
+  }
+
+  .gps-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .gps-dot.ok { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .gps-dot.err { background: var(--danger); }
+
+  /* ── TOAST ── */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    max-width: 320px;
+    animation: slideIn 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .toast.success { border-color: var(--success); }
+  .toast.error { border-color: var(--danger); }
+
+  @keyframes slideIn {
+    from { transform: translateX(40px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* ── DASHBOARD ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 600px) {
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: var(--mono);
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  tbody td {
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .badge-active { background: rgba(16,185,129,0.15); color: var(--success); }
+  .badge-done { background: rgba(100,116,139,0.15); color: var(--muted); }
+  .badge-monitoring { background: rgba(245,158,11,0.15); color: var(--warning); }
+
+  /* ── SHIFT HANDOVER ── */
+  .handover-form { display: none; }
+  .handover-form.visible { display: block; }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  /* ── ALERT ── */
+  .alert {
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: none;
+  }
+
+  .alert.visible { display: block; }
+  .alert-err { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+  .alert-ok { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+
+  /* ── NAV TABS (bottom of screen) ── */
+  .nav-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .nav-tab {
+    padding: 8px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .nav-tab.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(14,165,233,0.08);
+  }
+
+  .nav-content { display: none; }
+  .nav-content.active { display: block; }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    margin-top: 48px;
+  }
+
+  /* ── SPINNER ── */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── LOADING OVERLAY ── */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .loading-logo {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .config-notice {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 13px;
+    color: var(--warning);
+    margin-bottom: 20px;
+    font-family: var(--mono);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="brand-dot" style="width:12px;height:12px;"></div>
+  <div class="loading-logo">ABSENSI JALIN</div>
+  <div class="spinner" style="color:var(--accent)"></div>
+</div>
+
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="brand-dot"></div>
+      <div>
+        <div class="brand-name">Absensi Jalin</div>
+        <div class="brand-sub">Premises Management</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="user-badge" id="user-badge" style="display:none">
+        <span id="user-name-display">—</span>
+      </div>
+      <button class="logout-btn" id="logout-btn" onclick="handleLogout()">Keluar</button>
+    </div>
+  </header>
+
+  <!-- ══ SCREEN: AUTH ══ -->
+  <div class="screen active" id="screen-auth">
+    <div class="auth-wrapper">
+      <div class="auth-card">
+
+        <div id="supabase-config-notice" class="config-notice" style="display:none">
+          ⚠️ <strong>Setup diperlukan:</strong><br>
+          Ganti <code>SUPABASE_URL</code> dan <code>SUPABASE_ANON_KEY</code> di bagian CONFIG di bawah &lt;script&gt; dengan credentials Supabase project kamu.
+        </div>
+
+        <div class="auth-title">Selamat Datang</div>
+        <div class="auth-sub">Masuk untuk mencatat kehadiran</div>
+
+        <div class="tabs">
+          <div class="tab active" onclick="switchAuthTab('login')">Masuk</div>
+          <div class="tab" onclick="switchAuthTab('register')">Daftar</div>
+        </div>
+
+        <!-- LOGIN -->
+        <div id="auth-login">
+          <div class="field">
+            <label>Email</label>
+            <input type="email" id="login-email" placeholder="nama@jalin.co.id">
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" id="login-password" placeholder="••••••••">
+          </div>
+          <div class="alert alert-err" id="login-err"></div>
+          <button class="btn btn-primary" onclick="handleLogin()" id="login-btn">
+            Masuk
+          </button>
+        </div>
+
+        <!-- REGISTER -->
+        <div id="auth-register" style="display:none">
+          <div class="field">
+            <label>Nama Lengkap</label>
+            <input type="text" id="reg-name" placeholder="Nama kamu">
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" id="reg-email" placeholder="nama@jalin.co.id">
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" id="reg-password" placeholder="Min. 8 karakter">
+          </div>
+          <div class="field">
+            <label>Role</label>
+            <select id="reg-role">
+              <option value="karyawan">Karyawan</option>
+              <option value="supervisor">Supervisor</option>
+            </select>
+          </div>
+          <div class="alert alert-err" id="reg-err"></div>
+          <div class="alert alert-ok" id="reg-ok"></div>
+          <button class="btn btn-primary" onclick="handleRegister()" id="reg-btn">
+            Daftar
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: KARYAWAN ══ -->
+  <div class="screen" id="screen-karyawan">
+    <div class="main-wrapper">
+
+      <!-- Status Banner -->
+      <div class="status-banner" id="status-banner">
+        <div class="status-indicator">
+          <div class="status-dot" id="status-dot"></div>
+          <div>
+            <div class="status-label" id="status-label">Belum Check-in</div>
+            <div class="status-meta" id="status-meta">—</div>
+          </div>
+        </div>
+        <div class="duration-badge" id="duration-badge">00:00:00</div>
+      </div>
+
+      <div class="grid-2">
+
+        <!-- CHECK-IN CARD -->
+        <div class="card" id="card-checkin">
+          <div class="card-title">📍 Check-in</div>
+
+          <div class="gps-row">
+            <div class="gps-dot" id="gps-dot-in"></div>
+            <span id="gps-label-in">Mendeteksi lokasi...</span>
+          </div>
+
+          <div class="camera-wrap">
+            <video id="camera-feed" autoplay playsinline muted></video>
+            <div class="camera-overlay" id="cam-overlay-in">
+              <span>📷</span>
+              <span>Klik "Aktifkan Kamera"</span>
+            </div>
+          </div>
+          <canvas id="canvas-in"></canvas>
+          <img class="photo-preview" id="preview-in" alt="Foto check-in">
+
+          <div class="field">
+            <label>Jenis Pekerjaan</label>
+            <select id="job-type">
+              <option value="operasional">Operasional</option>
+              <option value="monitoring">Monitoring (shift handover wajib)</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="lainnya">Lainnya</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Catatan (opsional)</label>
+            <textarea id="checkin-notes" rows="2" placeholder="Kondisi awal, tugas, dll."></textarea>
+          </div>
+
+          <div class="alert alert-err" id="checkin-err"></div>
+
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button class="btn btn-ghost" style="flex:1" onclick="startCamera('in')">📷 Kamera</button>
+            <button class="btn btn-ghost" style="flex:1" onclick="capturePhoto('in')">✔ Ambil Foto</button>
+          </div>
+          <button class="btn btn-success btn-full" onclick="handleCheckin()">Check-in Sekarang</button>
+        </div>
+
+        <!-- CHECK-OUT CARD -->
+        <div class="card" id="card-checkout" style="opacity:0.4;pointer-events:none">
+          <div class="card-title">🏁 Check-out</div>
+
+          <div class="gps-row">
+            <div class="gps-dot" id="gps-dot-out"></div>
+            <span id="gps-label-out">—</span>
+          </div>
+
+          <div class="camera-wrap">
+            <video id="camera-feed-checkout" autoplay playsinline muted></video>
+            <div class="camera-overlay" id="cam-overlay-out">
+              <span>📷</span>
+              <span>Aktifkan saat check-out</span>
+            </div>
+          </div>
+          <canvas id="canvas-out"></canvas>
+          <img class="photo-preview" id="preview-out" alt="Foto check-out">
+
+          <!-- SHIFT HANDOVER -->
+          <div class="handover-form" id="handover-section">
+            <div class="divider"></div>
+            <div class="card-title">🔁 Shift Handover</div>
+            <div class="field">
+              <label>Nama Penerima Shift</label>
+              <input type="text" id="handover-to" placeholder="Nama karyawan pengganti">
+            </div>
+            <div class="field">
+              <label>Status Pekerjaan</label>
+              <select id="handover-status">
+                <option value="selesai">Selesai</option>
+                <option value="berlanjut">Berlanjut (perlu follow-up)</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Catatan Handover</label>
+              <textarea id="handover-notes" rows="3" placeholder="Detail kondisi, temuan, tindakan yang perlu dilanjutkan..."></textarea>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:12px">
+            <label>Catatan Check-out</label>
+            <textarea id="checkout-notes" rows="2" placeholder="Ringkasan pekerjaan selesai..."></textarea>
+          </div>
+
+          <div class="alert alert-err" id="checkout-err"></div>
+
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button class="btn btn-ghost" style="flex:1" onclick="startCamera('out')">📷 Kamera</button>
+            <button class="btn btn-ghost" style="flex:1" onclick="capturePhoto('out')">✔ Ambil Foto</button>
+          </div>
+          <button class="btn btn-danger btn-full" onclick="handleCheckout()">Check-out Sekarang</button>
+        </div>
+
+      </div>
+
+      <!-- RIWAYAT KARYAWAN -->
+      <div class="card">
+        <div class="card-title">📋 Riwayat Saya (7 hari terakhir)</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Check-in</th>
+                <th>Check-out</th>
+                <th>Durasi</th>
+                <th>Jenis</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="riwayat-tbody">
+              <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Memuat...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: SUPERVISOR ══ -->
+  <div class="screen" id="screen-supervisor">
+    <div class="main-wrapper">
+
+      <div class="nav-tabs">
+        <div class="nav-tab active" onclick="switchNav('overview')">Overview</div>
+        <div class="nav-tab" onclick="switchNav('live')">Live Session</div>
+        <div class="nav-tab" onclick="switchNav('rekap')">Rekap</div>
+        <div class="nav-tab" onclick="switchNav('sla')">SLA</div>
+      </div>
+
+      <!-- OVERVIEW -->
+      <div class="nav-content active" id="nav-overview">
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-hadir">—</div>
+            <div class="stat-label">Hadir Hari Ini</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-aktif">—</div>
+            <div class="stat-label">Sedang Aktif</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-selesai">—</div>
+            <div class="stat-label">Sudah Check-out</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⚡ Session Aktif Sekarang</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Check-in</th>
+                  <th>Durasi</th>
+                  <th>Jenis</th>
+                  <th>Lokasi</th>
+                </tr>
+              </thead>
+              <tbody id="live-tbody">
+                <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Memuat...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIVE -->
+      <div class="nav-content" id="nav-live">
+        <div class="card">
+          <div class="card-title">🔴 Live — Semua Session Aktif</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Check-in</th>
+                  <th>Durasi</th>
+                  <th>Jenis</th>
+                  <th>Catatan</th>
+                </tr>
+              </thead>
+              <tbody id="live2-tbody">
+                <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Memuat...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- REKAP -->
+      <div class="nav-content" id="nav-rekap">
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">Filter</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="field" style="margin:0;flex:1;min-width:140px">
+              <label>Dari</label>
+              <input type="date" id="filter-from">
+            </div>
+            <div class="field" style="margin:0;flex:1;min-width:140px">
+              <label>Sampai</label>
+              <input type="date" id="filter-to">
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn btn-primary" onclick="loadRekap()" style="width:auto">Tampilkan</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📊 Rekap Kehadiran</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Tanggal</th>
+                  <th>Check-in</th>
+                  <th>Check-out</th>
+                  <th>Durasi</th>
+                  <th>Jenis</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="rekap-tbody">
+                <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Pilih tanggal lalu klik Tampilkan</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLA -->
+      <div class="nav-content" id="nav-sla">
+        <div class="stat-grid" style="margin-bottom:20px">
+          <div class="stat-card">
+            <div class="stat-value" id="sla-avg">—</div>
+            <div class="stat-label">Rata-rata Durasi</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="sla-ontime">—</div>
+            <div class="stat-label">On-time Check-in</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="sla-handover">—</div>
+            <div class="stat-label">Handover Selesai</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📈 SLA per Karyawan (30 hari)</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Total Hadir</th>
+                  <th>Avg Durasi</th>
+                  <th>On-time</th>
+                  <th>Handover</th>
+                </tr>
+              </thead>
+              <tbody id="sla-tbody">
+                <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Memuat...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Footer -->
+<footer class="footer">
+  © Copyright Premises Management PT Jalin Pembayaran Nusantara | Author: Dedi Setiawan
+</footer>
+
+<script>
+// ════════════════════════════════════════════════════════
+//  ██████╗ ██████╗ ███╗   ██╗███████╗██╗ ██████╗
+// ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝
+// ██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗
+// ██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║
+// ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝
+//  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝
+// ════════════════════════════════════════════════════════
+// GANTI DUA NILAI DI BAWAH INI DENGAN SUPABASE PROJECT KAMU
+
+const SUPABASE_URL  = 'https://xhyxqdmaeauhrbsikfdx.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_AdC-zYQhJlDWYNPgO9nQcg_3DEe_gru';
+
+// SLA CONFIG
+const SLA_ONTIME_HOUR = 8;   // check-in dianggap ontime sebelum jam 08:00
+const SLA_MIN_DURATION = 7;  // durasi minimum kerja (jam)
+
+// ════════════════════════════════════════════════════════
+
+const isConfigured = SUPABASE_URL !== 'https://YOUR_PROJECT.supabase.co';
+
+let supabase = null;
+let currentUser = null;
+let currentProfile = null;
+let activeSession = null;
+let durationInterval = null;
+let liveInterval = null;
+let gpsData = { in: null, out: null };
+let photoData = { in: null, out: null };
+let cameraStream = { in: null, out: null };
+
+// ── INIT ──────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  startClock();
+
+  if (!isConfigured) {
+    document.getElementById('supabase-config-notice').style.display = 'block';
+    document.getElementById('loading-overlay').style.display = 'none';
+    showScreen('auth');
+    return;
+  }
+
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  // Restore session dari Supabase (auto-persist via localStorage bawaan SDK)
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (session) {
+    currentUser = session.user;
+    await loadProfile();
+    await restoreActiveSession();
+    showLoggedInState();
+  } else {
+    showScreen('auth');
+  }
+
+  document.getElementById('loading-overlay').style.display = 'none';
+});
+
+// ── CLOCK ──────────────────────────────────────────────
+function startClock() {
+  function tick() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('id-ID', { hour12: false });
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ── SCREEN ─────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+// ── AUTH TAB ───────────────────────────────────────────
+function switchAuthTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'register'));
+  });
+  document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none';
+}
+
+// ── LOGIN ──────────────────────────────────────────────
+async function handleLogin() {
+  if (!isConfigured) { showToast('Konfigurasi Supabase dulu!', 'error'); return; }
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-password').value;
+  const btn   = document.getElementById('login-btn');
+  const err   = document.getElementById('login-err');
+  err.classList.remove('visible');
+
+  if (!email || !pass) { showErr(err, 'Email dan password wajib diisi.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Masuk...';
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+
+  if (error) {
+    showErr(err, 'Email atau password salah.');
+    btn.disabled = false;
+    btn.innerHTML = 'Masuk';
+    return;
+  }
+
+  currentUser = data.user;
+  await loadProfile();
+  await restoreActiveSession();
+  showLoggedInState();
+  btn.disabled = false;
+  btn.innerHTML = 'Masuk';
+}
+
+// ── REGISTER ───────────────────────────────────────────
+async function handleRegister() {
+  if (!isConfigured) { showToast('Konfigurasi Supabase dulu!', 'error'); return; }
+  const name  = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass  = document.getElementById('reg-password').value;
+  const role  = document.getElementById('reg-role').value;
+  const err   = document.getElementById('reg-err');
+  const ok    = document.getElementById('reg-ok');
+  const btn   = document.getElementById('reg-btn');
+
+  err.classList.remove('visible'); ok.classList.remove('visible');
+  if (!name || !email || !pass) { showErr(err, 'Semua field wajib diisi.'); return; }
+  if (pass.length < 8) { showErr(err, 'Password min. 8 karakter.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Mendaftar...';
+
+  const { data, error } = await supabase.auth.signUp({ email, password: pass });
+
+  if (error) { showErr(err, error.message); btn.disabled=false; btn.innerHTML='Daftar'; return; }
+
+  // Insert profile
+  await supabase.from('profiles').insert({
+    id: data.user.id,
+    full_name: name,
+    email,
+    role
+  });
+
+  ok.textContent = 'Berhasil! Cek email untuk konfirmasi.';
+  ok.classList.add('visible');
+  btn.disabled = false;
+  btn.innerHTML = 'Daftar';
+}
+
+// ── PROFILE ────────────────────────────────────────────
+async function loadProfile() {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', currentUser.id)
+    .single();
+  currentProfile = data;
+}
+
+// ── RESTORE SESSION ────────────────────────────────────
+async function restoreActiveSession() {
+  // Cek active session di DB (bukan localStorage biasa)
+  const { data } = await supabase
+    .from('attendance')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .is('checkout_time', null)
+    .order('checkin_time', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (data) {
+    activeSession = data;
+    activateCheckoutUI();
+  }
+
+  if (currentProfile?.role === 'supervisor') {
+    loadSupervisorData();
+    startLiveRefresh();
+  } else {
+    loadRiwayat();
+    startDurationTimer();
+    getGPS('in');
+    getGPS('out');
+  }
+}
+
+// ── LOGGED IN STATE ─────────────────────────────────────
+function showLoggedInState() {
+  document.getElementById('user-badge').style.display = 'flex';
+  document.getElementById('user-name-display').textContent =
+    currentProfile?.full_name || currentUser.email;
+  document.getElementById('logout-btn').style.display = 'inline-flex';
+
+  if (currentProfile?.role === 'supervisor') {
+    showScreen('supervisor');
+  } else {
+    showScreen('karyawan');
+  }
+}
+
+// ── LOGOUT ─────────────────────────────────────────────
+async function handleLogout() {
+  await supabase.auth.signOut();
+  currentUser = null; currentProfile = null; activeSession = null;
+  clearInterval(durationInterval); clearInterval(liveInterval);
+  stopCamera('in'); stopCamera('out');
+  document.getElementById('user-badge').style.display = 'none';
+  document.getElementById('logout-btn').style.display = 'none';
+  showScreen('auth');
+  showToast('Berhasil keluar', 'success');
+}
+
+// ── GPS ─────────────────────────────────────────────────
+function getGPS(side) {
+  const dot   = document.getElementById('gps-dot-' + side);
+  const label = document.getElementById('gps-label-' + side);
+  if (!dot) return;
+
+  label.textContent = 'Mendeteksi GPS...';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      gpsData[side] = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
+      dot.className = 'gps-dot ok';
+      label.textContent = `${gpsData[side].lat.toFixed(5)}, ${gpsData[side].lng.toFixed(5)} (±${Math.round(pos.coords.accuracy)}m)`;
+    },
+    err => {
+      dot.className = 'gps-dot err';
+      label.textContent = 'GPS gagal — izinkan akses lokasi';
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+// ── CAMERA ─────────────────────────────────────────────
+async function startCamera(side) {
+  const videoId = side === 'in' ? 'camera-feed' : 'camera-feed-checkout';
+  const overlayId = side === 'in' ? 'cam-overlay-in' : 'cam-overlay-out';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+    });
+    cameraStream[side] = stream;
+    const video = document.getElementById(videoId);
+    video.srcObject = stream;
+    document.getElementById(overlayId).style.display = 'none';
+    showToast('Kamera aktif', 'success');
+  } catch (e) {
+    showToast('Gagal akses kamera: ' + e.message, 'error');
+  }
+}
+
+function capturePhoto(side) {
+  const videoId  = side === 'in' ? 'camera-feed' : 'camera-feed-checkout';
+  const canvasId = side === 'in' ? 'canvas-in' : 'canvas-out';
+  const prevId   = side === 'in' ? 'preview-in' : 'preview-out';
+  const video    = document.getElementById(videoId);
+  const canvas   = document.getElementById(canvasId);
+
+  if (!video.srcObject) { showToast('Aktifkan kamera dulu', 'error'); return; }
+
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  // Compress
+  const compressed = canvas.toDataURL('image/jpeg', 0.7);
+  photoData[side] = compressed;
+
+  const prev = document.getElementById(prevId);
+  prev.src = compressed;
+  prev.style.display = 'block';
+  showToast('Foto berhasil diambil ✓', 'success');
+  stopCamera(side);
+}
+
+function stopCamera(side) {
+  if (cameraStream[side]) {
+    cameraStream[side].getTracks().forEach(t => t.stop());
+    cameraStream[side] = null;
+  }
+}
+
+// ── UPLOAD PHOTO ────────────────────────────────────────
+async function uploadPhoto(base64, filename) {
+  if (!base64) return null;
+  const blob = dataURLtoBlob(base64);
+  const { data, error } = await supabase.storage
+    .from('attendance-photos')
+    .upload(filename, blob, { contentType: 'image/jpeg', upsert: true });
+  if (error) { console.error(error); return null; }
+  const { data: pub } = supabase.storage.from('attendance-photos').getPublicUrl(filename);
+  return pub.publicUrl;
+}
+
+function dataURLtoBlob(dataurl) {
+  const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) u8arr[n] = bstr.charCodeAt(n);
+  return new Blob([u8arr], { type: mime });
+}
+
+// ── CHECK-IN ────────────────────────────────────────────
+async function handleCheckin() {
+  if (activeSession) { showToast('Kamu sudah check-in!', 'error'); return; }
+  if (!gpsData.in)   { showToast('GPS belum terdeteksi — tunggu sebentar', 'error'); return; }
+  if (!photoData.in) { showToast('Ambil foto dulu sebelum check-in', 'error'); return; }
+
+  const jobType = document.getElementById('job-type').value;
+  const notes   = document.getElementById('checkin-notes').value;
+  const err     = document.getElementById('checkin-err');
+  err.classList.remove('visible');
+
+  // Upload foto
+  const ts = Date.now();
+  const photoUrl = await uploadPhoto(photoData.in, `checkin/${currentUser.id}_${ts}.jpg`);
+
+  const { data, error } = await supabase.from('attendance').insert({
+    user_id: currentUser.id,
+    user_name: currentProfile?.full_name,
+    checkin_time: new Date().toISOString(),
+    checkin_gps: gpsData.in,
+    checkin_photo: photoUrl,
+    job_type: jobType,
+    checkin_notes: notes
+  }).select().single();
+
+  if (error) { showErr(err, 'Gagal check-in: ' + error.message); return; }
+
+  activeSession = data;
+  activateCheckoutUI();
+  loadRiwayat();
+  showToast('✅ Check-in berhasil!', 'success');
+}
+
+// ── ACTIVATE CHECKOUT UI ────────────────────────────────
+function activateCheckoutUI() {
+  if (!activeSession) return;
+
+  const checkinCard  = document.getElementById('card-checkin');
+  const checkoutCard = document.getElementById('card-checkout');
+
+  checkinCard.style.opacity = '0.4';
+  checkinCard.style.pointerEvents = 'none';
+  checkoutCard.style.opacity = '1';
+  checkoutCard.style.pointerEvents = 'auto';
+
+  const dot   = document.getElementById('status-dot');
+  const label = document.getElementById('status-label');
+  const meta  = document.getElementById('status-meta');
+
+  dot.classList.add('active');
+  label.textContent = 'Sedang Bekerja';
+  const t = new Date(activeSession.checkin_time);
+  meta.textContent = `Check-in: ${t.toLocaleTimeString('id-ID')} — ${activeSession.job_type}`;
+
+  // Show handover if monitoring
+  if (activeSession.job_type === 'monitoring') {
+    document.getElementById('handover-section').classList.add('visible');
+  }
+
+  startDurationTimer();
+  getGPS('out');
+}
+
+// ── DURATION TIMER ──────────────────────────────────────
+function startDurationTimer() {
+  clearInterval(durationInterval);
+  if (!activeSession) return;
+
+  const badge = document.getElementById('duration-badge');
+  function update() {
+    if (!activeSession) return;
+    const diff = Date.now() - new Date(activeSession.checkin_time).getTime();
+    const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+    const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+    const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+    badge.textContent = `${h}:${m}:${s}`;
+  }
+  update();
+  durationInterval = setInterval(update, 1000);
+}
+
+// ── CHECK-OUT ────────────────────────────────────────────
+async function handleCheckout() {
+  if (!activeSession) { showToast('Belum check-in!', 'error'); return; }
+  if (!gpsData.out)   { showToast('GPS belum terdeteksi', 'error'); return; }
+  if (!photoData.out) { showToast('Ambil foto dulu sebelum check-out', 'error'); return; }
+
+  const isMonitoring = activeSession.job_type === 'monitoring';
+  const handoverTo    = document.getElementById('handover-to').value;
+  const handoverStatus = document.getElementById('handover-status').value;
+  const handoverNotes = document.getElementById('handover-notes').value;
+  const notes         = document.getElementById('checkout-notes').value;
+  const err           = document.getElementById('checkout-err');
+  err.classList.remove('visible');
+
+  if (isMonitoring && !handoverTo.trim()) {
+    showErr(err, 'Nama penerima shift wajib diisi untuk pekerjaan monitoring.'); return;
+  }
+
+  // Duration
+  const checkinTime  = new Date(activeSession.checkin_time);
+  const checkoutTime = new Date();
+  const durationMin  = Math.round((checkoutTime - checkinTime) / 60000);
+
+  // Upload foto
+  const ts = Date.now();
+  const photoUrl = await uploadPhoto(photoData.out, `checkout/${currentUser.id}_${ts}.jpg`);
+
+  const updateData = {
+    checkout_time:   checkoutTime.toISOString(),
+    checkout_gps:    gpsData.out,
+    checkout_photo:  photoUrl,
+    checkout_notes:  notes,
+    duration_minutes: durationMin,
+    sla_ontime: checkinTime.getHours() < SLA_ONTIME_HOUR,
+    sla_duration_ok: durationMin >= SLA_MIN_DURATION * 60
+  };
+
+  if (isMonitoring) {
+    updateData.handover_to     = handoverTo;
+    updateData.handover_status = handoverStatus;
+    updateData.handover_notes  = handoverNotes;
+  }
+
+  const { error } = await supabase
+    .from('attendance')
+    .update(updateData)
+    .eq('id', activeSession.id);
+
+  if (error) { showErr(err, 'Gagal check-out: ' + error.message); return; }
+
+  clearInterval(durationInterval);
+  activeSession = null;
+
+  // Reset UI
+  document.getElementById('card-checkin').style.opacity = '1';
+  document.getElementById('card-checkin').style.pointerEvents = 'auto';
+  document.getElementById('card-checkout').style.opacity = '0.4';
+  document.getElementById('card-checkout').style.pointerEvents = 'none';
+  document.getElementById('status-dot').classList.remove('active');
+  document.getElementById('status-label').textContent = 'Belum Check-in';
+  document.getElementById('status-meta').textContent = '—';
+  document.getElementById('duration-badge').textContent = '00:00:00';
+  document.getElementById('handover-section').classList.remove('visible');
+  photoData = { in: null, out: null };
+  document.getElementById('preview-in').style.display = 'none';
+  document.getElementById('preview-out').style.display = 'none';
+
+  loadRiwayat();
+  showToast('✅ Check-out berhasil!', 'success');
+}
+
+// ── RIWAYAT KARYAWAN ────────────────────────────────────
+async function loadRiwayat() {
+  const from7 = new Date(Date.now() - 7 * 86400000).toISOString();
+  const { data } = await supabase
+    .from('attendance')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .gte('checkin_time', from7)
+    .order('checkin_time', { ascending: false });
+
+  const tbody = document.getElementById('riwayat-tbody');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Belum ada riwayat</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(r => {
+    const ci = new Date(r.checkin_time);
+    const co = r.checkout_time ? new Date(r.checkout_time) : null;
+    const dur = r.duration_minutes ? fmtDuration(r.duration_minutes) : '—';
+    const status = co ? '<span class="badge badge-done">Selesai</span>' : '<span class="badge badge-active">Aktif</span>';
+    return `<tr>
+      <td>${ci.toLocaleDateString('id-ID')}</td>
+      <td>${ci.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${co ? co.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+      <td>${dur}</td>
+      <td>${r.job_type || '—'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── SUPERVISOR DATA ─────────────────────────────────────
+async function loadSupervisorData() {
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const { data: today } = await supabase
+    .from('attendance')
+    .select('*')
+    .gte('checkin_time', todayStart.toISOString());
+
+  if (!today) return;
+
+  const aktif   = today.filter(r => !r.checkout_time);
+  const selesai = today.filter(r => r.checkout_time);
+
+  document.getElementById('stat-hadir').textContent  = today.length;
+  document.getElementById('stat-aktif').textContent  = aktif.length;
+  document.getElementById('stat-selesai').textContent = selesai.length;
+
+  // Live table
+  const renderLive = (tbodyId, rows) => {
+    const tbody = document.getElementById(tbodyId);
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Tidak ada session aktif</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const ci = new Date(r.checkin_time);
+      const dur = fmtDuration(Math.round((Date.now() - ci) / 60000));
+      return `<tr>
+        <td>${r.user_name || r.user_id}</td>
+        <td>${ci.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'})}</td>
+        <td>${dur}</td>
+        <td><span class="badge ${r.job_type==='monitoring'?'badge-monitoring':'badge-active'}">${r.job_type||'—'}</span></td>
+        <td style="font-size:11px;color:var(--muted)">${r.checkin_gps ? `${r.checkin_gps.lat?.toFixed(4)},${r.checkin_gps.lng?.toFixed(4)}` : '—'}</td>
+      </tr>`;
+    }).join('');
+  };
+
+  renderLive('live-tbody', aktif);
+  renderLive('live2-tbody', aktif);
+
+  loadSLA();
+}
+
+function startLiveRefresh() {
+  clearInterval(liveInterval);
+  liveInterval = setInterval(loadSupervisorData, 30000); // refresh 30s
+}
+
+// ── REKAP ───────────────────────────────────────────────
+async function loadRekap() {
+  const from = document.getElementById('filter-from').value;
+  const to   = document.getElementById('filter-to').value;
+  if (!from || !to) { showToast('Pilih rentang tanggal', 'error'); return; }
+
+  const { data } = await supabase
+    .from('attendance')
+    .select('*, profiles(full_name)')
+    .gte('checkin_time', from + 'T00:00:00')
+    .lte('checkin_time', to   + 'T23:59:59')
+    .order('checkin_time', { ascending: false });
+
+  const tbody = document.getElementById('rekap-tbody');
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Tidak ada data</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(r => {
+    const ci  = new Date(r.checkin_time);
+    const co  = r.checkout_time ? new Date(r.checkout_time) : null;
+    const dur = r.duration_minutes ? fmtDuration(r.duration_minutes) : '—';
+    const nm  = r.user_name || r.user_id;
+    const st  = co ? '<span class="badge badge-done">Selesai</span>' : '<span class="badge badge-active">Aktif</span>';
+    return `<tr>
+      <td>${nm}</td>
+      <td>${ci.toLocaleDateString('id-ID')}</td>
+      <td>${ci.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${co ? co.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+      <td>${dur}</td>
+      <td>${r.job_type||'—'}</td>
+      <td>${st}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── SLA ─────────────────────────────────────────────────
+async function loadSLA() {
+  const from30 = new Date(Date.now() - 30 * 86400000).toISOString();
+  const { data } = await supabase
+    .from('attendance')
+    .select('*')
+    .gte('checkin_time', from30)
+    .not('checkout_time', 'is', null);
+
+  if (!data || !data.length) return;
+
+  // Aggregate per user
+  const users = {};
+  data.forEach(r => {
+    const k = r.user_name || r.user_id;
+    if (!users[k]) users[k] = { count: 0, totalMin: 0, ontime: 0, handover: 0 };
+    users[k].count++;
+    users[k].totalMin += r.duration_minutes || 0;
+    if (r.sla_ontime) users[k].ontime++;
+    if (r.handover_to) users[k].handover++;
+  });
+
+  const avgTotal = data.reduce((s,r) => s + (r.duration_minutes||0), 0) / data.length;
+  const ontimePct = Math.round(data.filter(r => r.sla_ontime).length / data.length * 100);
+  const handoverPct = Math.round(data.filter(r => r.handover_to).length / data.filter(r => r.job_type==='monitoring').length * 100) || 0;
+
+  document.getElementById('sla-avg').textContent = fmtDuration(Math.round(avgTotal));
+  document.getElementById('sla-ontime').textContent = ontimePct + '%';
+  document.getElementById('sla-handover').textContent = handoverPct + '%';
+
+  document.getElementById('sla-tbody').innerHTML = Object.entries(users).map(([name, u]) => `
+    <tr>
+      <td>${name}</td>
+      <td>${u.count}</td>
+      <td>${fmtDuration(Math.round(u.totalMin / u.count))}</td>
+      <td>${Math.round(u.ontime / u.count * 100)}%</td>
+      <td>${u.handover}</td>
+    </tr>
+  `).join('');
+}
+
+// ── NAV ─────────────────────────────────────────────────
+function switchNav(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('nav-' + id).classList.add('active');
+
+  if (id === 'sla') loadSLA();
+}
+
+// ── HELPERS ─────────────────────────────────────────────
+function fmtDuration(minutes) {
+  if (!minutes) return '—';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}j ${m}m` : `${m}m`;
+}
+
+function showErr(el, msg) {
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function showToast(msg, type = 'success') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> ${msg}`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+</script>
+</body>
+</html>
